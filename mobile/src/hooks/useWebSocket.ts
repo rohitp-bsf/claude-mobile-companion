@@ -4,6 +4,9 @@ import type { ServerMessage, ClientMessage, SessionInfo } from '../../../shared/
 const WS_RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 
+const STORAGE_KEY_SERVER = 'claude-companion-server-url';
+const STORAGE_KEY_PIN = 'claude-companion-pin';
+
 export interface WSMessage {
     sessionId: string;
     type: 'output' | 'approval' | 'complete' | 'error';
@@ -18,19 +21,17 @@ export interface WSMessage {
 }
 
 export function useWebSocket() {
+    const [serverUrl, setServerUrl] = useState(() => localStorage.getItem(STORAGE_KEY_SERVER) || '');
+    const [isConnected, setIsConnected] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [authError, setAuthError] = useState('');
-    const [connecting, setConnecting] = useState(true);
+    const [connecting, setConnecting] = useState(false);
     const [sessions, setSessions] = useState<SessionInfo[]>([]);
     const [messages, setMessages] = useState<WSMessage[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectCount = useRef(0);
-    const pinRef = useRef('');
-
-    const getWsUrl = useCallback(() => {
-        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return `${proto}//${window.location.host}`;
-    }, []);
+    const pinRef = useRef(localStorage.getItem(STORAGE_KEY_PIN) || '');
+    const serverUrlRef = useRef(serverUrl);
 
     const send = useCallback((msg: ClientMessage) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -38,31 +39,104 @@ export function useWebSocket() {
         }
     }, []);
 
-    const connect = useCallback(() => {
-        const ws = new WebSocket(getWsUrl());
-        wsRef.current = ws;
+    const buildWsUrl = useCallback((url: string) => {
+        // Convert HTTP URL to WebSocket URL
+        let wsUrl = url.trim().replace(/\/+$/, '');
+        if (wsUrl.startsWith('https://')) {
+            wsUrl = 'wss://' + wsUrl.slice(8);
+        } else if (wsUrl.startsWith('http://')) {
+            wsUrl = 'ws://' + wsUrl.slice(7);
+        } else if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+            // Default to wss for ngrok/remote, ws for localhost/LAN
+            const isLocal = wsUrl.includes('localhost') || wsUrl.includes('192.168.') || wsUrl.includes('10.');
+            wsUrl = (isLocal ? 'ws://' : 'wss://') + wsUrl;
+        }
+        return wsUrl;
+    }, []);
 
-        ws.onopen = () => {
-            setConnecting(false);
-            reconnectCount.current = 0;
-            // Re-authenticate on reconnect
-            if (pinRef.current) {
-                send({ type: 'auth', pin: pinRef.current });
+    const disconnect = useCallback(() => {
+        reconnectCount.current = MAX_RECONNECT; // prevent auto-reconnect
+        wsRef.current?.close();
+        wsRef.current = null;
+        setIsConnected(false);
+        setIsAuthenticated(false);
+        setConnecting(false);
+    }, []);
+
+    const connect = useCallback((url: string, pin: string) => {
+        // Close existing connection
+        if (wsRef.current) {
+            reconnectCount.current = MAX_RECONNECT;
+            wsRef.current.close();
+        }
+
+        serverUrlRef.current = url;
+        pinRef.current = pin;
+        reconnectCount.current = 0;
+        setConnecting(true);
+        setAuthError('');
+
+        const wsUrl = buildWsUrl(url);
+
+        const doConnect = () => {
+            let ws: WebSocket;
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch {
+                setAuthError('Invalid server URL');
+                setConnecting(false);
+                return;
             }
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                setIsConnected(true);
+                setConnecting(false);
+                reconnectCount.current = 0;
+                // Authenticate immediately
+                send({ type: 'auth', pin: pinRef.current });
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg: ServerMessage = JSON.parse(event.data);
+                    handleMessage(msg);
+                } catch {
+                    // ignore malformed messages
+                }
+            };
+
+            ws.onclose = () => {
+                setIsConnected(false);
+                if (reconnectCount.current < MAX_RECONNECT) {
+                    reconnectCount.current++;
+                    setConnecting(true);
+                    setTimeout(doConnect, WS_RECONNECT_DELAY);
+                } else {
+                    setConnecting(false);
+                }
+            };
+
+            ws.onerror = () => {
+                ws.close();
+            };
         };
 
-        ws.onmessage = (event) => {
-            const msg: ServerMessage = JSON.parse(event.data);
-
+        const handleMessage = (msg: ServerMessage) => {
             switch (msg.type) {
                 case 'auth_success':
                     setIsAuthenticated(true);
                     setAuthError('');
+                    // Persist successful connection
+                    localStorage.setItem(STORAGE_KEY_SERVER, serverUrlRef.current);
+                    localStorage.setItem(STORAGE_KEY_PIN, pinRef.current);
                     break;
 
                 case 'auth_failed':
                     setIsAuthenticated(false);
                     setAuthError(msg.reason);
+                    // Don't reconnect on auth failure
+                    reconnectCount.current = MAX_RECONNECT;
                     break;
 
                 case 'sessions_list':
@@ -154,45 +228,42 @@ export function useWebSocket() {
             }
         };
 
-        ws.onclose = () => {
-            setConnecting(true);
-            if (reconnectCount.current < MAX_RECONNECT) {
-                reconnectCount.current++;
-                setTimeout(connect, WS_RECONNECT_DELAY);
-            }
-        };
-
-        ws.onerror = () => {
-            ws.close();
-        };
-    }, [getWsUrl, send]);
-
-    useEffect(() => {
-        connect();
-        return () => {
-            wsRef.current?.close();
-        };
-    }, [connect]);
+        doConnect();
+    }, [buildWsUrl, send]);
 
     // Ping keepalive
     useEffect(() => {
         const interval = setInterval(() => {
-            send({ type: 'ping' });
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                send({ type: 'ping' });
+            }
         }, 25000);
         return () => clearInterval(interval);
     }, [send]);
 
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            wsRef.current?.close();
+        };
+    }, []);
+
     return {
+        serverUrl,
+        savedPin: pinRef.current,
+        isConnected,
         isAuthenticated,
         authError,
         connecting,
         sessions,
         messages,
 
-        authenticate: (pin: string) => {
-            pinRef.current = pin;
-            send({ type: 'auth', pin });
+        connect: (url: string, pin: string) => {
+            setServerUrl(url);
+            connect(url, pin);
         },
+
+        disconnect,
 
         newSession: (cwd: string, prompt: string) => {
             send({ type: 'new_session', cwd, prompt });

@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+    // GitHub Pages deploys to /<repo-name>/
+    base: '/claude-mobile-companion/',
     plugins: [
         react(),
         VitePWA({
@@ -33,12 +35,5 @@ export default defineConfig({
     ],
     server: {
         port: 5199,
-        proxy: {
-            '/api': 'http://localhost:3099',
-            '/ws': {
-                target: 'ws://localhost:3099',
-                ws: true,
-            },
-        },
     },
 });

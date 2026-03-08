@@ -1,29 +1,23 @@
 import { useState } from 'react';
 
 interface Props {
-    onLogin: (pin: string) => void;
+    onConnect: (serverUrl: string, pin: string) => void;
     error: string;
     connecting: boolean;
+    savedServerUrl: string;
+    savedPin: string;
 }
 
-export default function LoginScreen({ onLogin, error, connecting }: Props) {
-    const [pin, setPin] = useState('');
+export default function LoginScreen({ onConnect, error, connecting, savedServerUrl, savedPin }: Props) {
+    const [serverUrl, setServerUrl] = useState(savedServerUrl);
+    const [pin, setPin] = useState(savedPin);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (pin.length >= 4) {
-            onLogin(pin);
+        if (serverUrl.trim() && pin.length >= 4) {
+            onConnect(serverUrl.trim(), pin);
         }
     };
-
-    if (connecting) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-6">
-                <div className="w-8 h-8 border-2 border-claude-500 border-t-transparent rounded-full animate-spin" />
-                <p className="mt-4 text-slate-400 text-sm">Connecting to server...</p>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -35,20 +29,36 @@ export default function LoginScreen({ onLogin, error, connecting }: Props) {
                         </svg>
                     </div>
                     <h1 className="text-xl font-semibold">Claude Companion</h1>
-                    <p className="text-slate-400 text-sm mt-1">Enter your PIN to connect</p>
+                    <p className="text-slate-400 text-sm mt-1">Connect to your Claude Code server</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoFocus
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value)}
-                        placeholder="Enter PIN"
-                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-center text-2xl tracking-[0.5em] placeholder:tracking-normal placeholder:text-base focus:outline-none focus:border-claude-500 focus:ring-1 focus:ring-claude-500"
-                    />
+                    <div>
+                        <label className="block text-xs text-slate-400 mb-1.5 ml-1">Server URL</label>
+                        <input
+                            type="url"
+                            autoFocus
+                            value={serverUrl}
+                            onChange={(e) => setServerUrl(e.target.value)}
+                            placeholder="https://abc123.ngrok-free.app"
+                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm placeholder:text-slate-500 focus:outline-none focus:border-claude-500 focus:ring-1 focus:ring-claude-500"
+                        />
+                        <p className="text-xs text-slate-500 mt-1.5 ml-1">
+                            ngrok URL, LAN IP, or Cloudflare Tunnel
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs text-slate-400 mb-1.5 ml-1">PIN</label>
+                        <input
+                            type="password"
+                            inputMode="numeric"
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value)}
+                            placeholder="Enter PIN"
+                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-center text-2xl tracking-[0.5em] placeholder:tracking-normal placeholder:text-base focus:outline-none focus:border-claude-500 focus:ring-1 focus:ring-claude-500"
+                        />
+                    </div>
 
                     {error && (
                         <p className="text-red-400 text-sm text-center">{error}</p>
@@ -56,10 +66,17 @@ export default function LoginScreen({ onLogin, error, connecting }: Props) {
 
                     <button
                         type="submit"
-                        disabled={pin.length < 4}
-                        className="w-full py-3 bg-claude-500 hover:bg-claude-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-medium transition-colors"
+                        disabled={!serverUrl.trim() || pin.length < 4 || connecting}
+                        className="w-full py-3 bg-claude-500 hover:bg-claude-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                     >
-                        Connect
+                        {connecting ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                Connecting...
+                            </>
+                        ) : (
+                            'Connect'
+                        )}
                     </button>
                 </form>
             </div>

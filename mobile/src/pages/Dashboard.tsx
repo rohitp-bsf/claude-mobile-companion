@@ -6,9 +6,11 @@ interface Props {
     sessions: SessionInfo[];
     onSelectSession: (id: string) => void;
     onNewSession: (cwd: string, prompt: string) => void;
+    onDisconnect: () => void;
+    serverUrl: string;
 }
 
-export default function Dashboard({ sessions, onSelectSession, onNewSession }: Props) {
+export default function Dashboard({ sessions, onSelectSession, onNewSession, onDisconnect, serverUrl }: Props) {
     const [showNew, setShowNew] = useState(false);
     const [cwd, setCwd] = useState('');
     const [prompt, setPrompt] = useState('');
@@ -32,9 +34,20 @@ export default function Dashboard({ sessions, onSelectSession, onNewSession }: P
             <header className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3">
                 <div className="flex items-center justify-between">
                     <h1 className="text-lg font-semibold">Claude Companion</h1>
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-green-500 rounded-full" />
-                        <span className="text-xs text-slate-400">Connected</span>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 bg-green-500 rounded-full" />
+                            <span className="text-xs text-slate-500 max-w-[120px] truncate">{serverUrl.replace(/^https?:\/\//, '')}</span>
+                        </div>
+                        <button
+                            onClick={onDisconnect}
+                            className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+                            title="Disconnect"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </header>

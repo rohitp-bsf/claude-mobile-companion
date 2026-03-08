@@ -4,18 +4,20 @@ import LoginScreen from './pages/LoginScreen';
 import Dashboard from './pages/Dashboard';
 import Session from './pages/Session';
 
-type Screen = 'login' | 'dashboard' | { type: 'session'; sessionId: string };
+type Screen = 'dashboard' | { type: 'session'; sessionId: string };
 
 export default function App() {
-    const [screen, setScreen] = useState<Screen>('login');
+    const [screen, setScreen] = useState<Screen>('dashboard');
     const ws = useWebSocket();
 
     if (!ws.isAuthenticated) {
         return (
             <LoginScreen
-                onLogin={(pin) => ws.authenticate(pin)}
+                onConnect={(url, pin) => ws.connect(url, pin)}
                 error={ws.authError}
                 connecting={ws.connecting}
+                savedServerUrl={ws.serverUrl}
+                savedPin={ws.savedPin}
             />
         );
     }
@@ -40,6 +42,8 @@ export default function App() {
             sessions={ws.sessions}
             onSelectSession={(id) => setScreen({ type: 'session', sessionId: id })}
             onNewSession={(cwd, prompt) => ws.newSession(cwd, prompt)}
+            onDisconnect={ws.disconnect}
+            serverUrl={ws.serverUrl}
         />
     );
 }
