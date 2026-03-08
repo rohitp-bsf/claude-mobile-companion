@@ -56,8 +56,8 @@ app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(mobileDist, 'index.html'));
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-    printStartupBanner(PORT);
+server.listen(PORT, '0.0.0.0', async () => {
+    await printStartupBanner(PORT, PIN);
 });
 
 // Graceful shutdown
