@@ -74,7 +74,7 @@ export default function Dashboard({ sessions, onSelectSession, onNewSession, onD
                             </svg>
                         </div>
                         <p className="text-slate-400">No active sessions</p>
-                        <p className="text-slate-500 text-sm mt-1">Start a new Claude session below</p>
+                        <p className="text-slate-500 text-sm mt-1">Start a new session below or run Claude CLI with hooks</p>
                     </div>
                 )}
 
@@ -144,6 +144,7 @@ export default function Dashboard({ sessions, onSelectSession, onNewSession, onD
 
 function SessionCard({ session, onClick }: { session: SessionInfo; onClick: () => void }) {
     const timeAgo = formatTimeAgo(session.lastActivityAt);
+    const isCli = session.source === 'cli';
 
     return (
         <button
@@ -152,7 +153,14 @@ function SessionCard({ session, onClick }: { session: SessionInfo; onClick: () =
         >
             <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{session.prompt}</p>
+                    <div className="flex items-center gap-2">
+                        {isCli && (
+                            <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded">
+                                CLI
+                            </span>
+                        )}
+                        <p className="font-medium text-sm truncate">{session.prompt}</p>
+                    </div>
                     <p className="text-xs text-slate-500 mt-1 truncate">{session.cwd}</p>
                 </div>
                 <StatusBadge status={session.status} />

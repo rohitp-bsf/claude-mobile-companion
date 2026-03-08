@@ -7,6 +7,8 @@ export type ServerMessage =
     | { type: 'session_started'; sessionId: string; cwd: string; prompt: string; timestamp: number }
     | { type: 'session_complete'; sessionId: string; timestamp: number }
     | { type: 'session_error'; sessionId: string; error: string; timestamp: number }
+    | { type: 'session_update'; sessionId: string; session: SessionInfo; timestamp: number }
+    | { type: 'notification'; sessionId: string; title?: string; message: string; timestamp: number }
     | { type: 'sessions_list'; sessions: SessionInfo[] }
     | { type: 'auth_success' }
     | { type: 'auth_failed'; reason: string }
@@ -40,6 +42,8 @@ export interface SessionInfo {
     status: SessionStatus;
     createdAt: number;
     lastActivityAt: number;
+    /** 'sdk' = started via companion SDK, 'cli' = Claude Code CLI session via hooks */
+    source?: 'sdk' | 'cli';
     /** Set when a tool call is awaiting approval */
     pendingApproval?: ToolCallInfo;
 }

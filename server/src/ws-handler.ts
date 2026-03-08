@@ -98,9 +98,7 @@ export class WSHandler {
                 break;
 
             case 'send_message':
-                // TODO: Implement message injection into running session
-                // This requires Claude Code SDK support for mid-session input
-                console.log(`Message for session ${msg.sessionId}: ${msg.text}`);
+                this.sessionManager.sendMessage(msg.sessionId, msg.text);
                 break;
 
             case 'approve':
@@ -155,6 +153,7 @@ export class WSHandler {
     }
 
     private setupSessionEvents(): void {
+        // SDK session events
         this.sessionManager.on('output', (data) => {
             this.broadcast({
                 type: 'output',
@@ -186,6 +185,70 @@ export class WSHandler {
                 type: 'session_error',
                 sessionId: data.sessionId,
                 error: data.error,
+                timestamp: Date.now(),
+            });
+        });
+
+        // CLI session events
+        this.sessionManager.on('session_registered', (_data) => {
+            // Broadcast updated sessions list to all clients
+            this.broadcast({
+                type: 'sessions_list',
+                sessions: this.sessionManager.listSessions(),
+            });
+        });
+
+        this.sessionManager.on('cli_output', (data) => {
+            this.broadcast({
+                type: 'output',
+                sessionId: data.sessionId,
+                content: data.content,
+                timestamp: Date.now(),
+            });
+        });
+
+        this.sessionManager.on('cli_approval_needed', (data) => {
+            this.broadcast({
+                type: 'approval_needed',
+                sessionId: data.sessionId,
+                toolCall: data.toolCall,
+                timestamp: Date.now(),
+            });
+        });
+
+        this.sessionManager.on('cli_session_update', (data) => {
+            // Find the CLI session and broadcast its updated state
+            const sessions = this.sessionManager.listSessions();
+            const session = sessions.find((s) => s.id === data.sessionId);
+            if (session) {
+                this.broadcast({
+                    type: 'session_update',
+                    sessionId: data.sessionId,
+                    session,
+                    timestamp: Date.now(),
+                });
+            }
+        });
+
+        this.sessionManager.on('cli_waiting_input', (data) => {
+            const sessions = this.sessionManager.listSessions();
+            const session = sessions.find((s) => s.id === data.sessionId);
+            if (session) {
+                this.broadcast({
+                    type: 'session_update',
+                    sessionId: data.sessionId,
+                    session,
+                    timestamp: Date.now(),
+                });
+            }
+        });
+
+        this.sessionManager.on('cli_notification', (data) => {
+            this.broadcast({
+                type: 'notification',
+                sessionId: data.sessionId,
+                title: data.title,
+                message: data.message,
                 timestamp: Date.now(),
             });
         });

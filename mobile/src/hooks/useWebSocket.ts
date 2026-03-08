@@ -223,6 +223,28 @@ export function useWebSocket() {
                     );
                     break;
 
+                case 'session_update':
+                    setSessions((prev) => {
+                        const exists = prev.some((s) => s.id === msg.sessionId);
+                        if (exists) {
+                            return prev.map((s) => s.id === msg.sessionId ? msg.session : s);
+                        }
+                        return [...prev, msg.session];
+                    });
+                    break;
+
+                case 'notification':
+                    setMessages((prev) => [
+                        ...prev,
+                        {
+                            sessionId: msg.sessionId,
+                            type: 'output',
+                            content: msg.title ? `[${msg.title}] ${msg.message}` : msg.message,
+                            timestamp: msg.timestamp,
+                        },
+                    ]);
+                    break;
+
                 case 'pong':
                     break;
             }

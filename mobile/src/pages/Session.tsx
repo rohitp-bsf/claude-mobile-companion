@@ -46,6 +46,7 @@ export default function Session({
     };
 
     const isActive = session && (session.status === 'running' || session.status === 'waiting_approval' || session.status === 'waiting_input');
+    const isWaitingInput = session?.status === 'waiting_input';
 
     return (
         <div className="h-screen flex flex-col">
@@ -58,7 +59,14 @@ export default function Session({
                         </svg>
                     </button>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{session?.prompt || 'Session'}</p>
+                        <div className="flex items-center gap-2">
+                            {session?.source === 'cli' && (
+                                <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded">
+                                    CLI
+                                </span>
+                            )}
+                            <p className="text-sm font-medium truncate">{session?.prompt || 'Session'}</p>
+                        </div>
                         <p className="text-xs text-slate-500 truncate">{session?.cwd}</p>
                     </div>
                     <StatusBadge status={session?.status || 'running'} />
@@ -100,31 +108,38 @@ export default function Session({
             {/* Input area */}
             <div className="shrink-0 border-t border-slate-800 bg-slate-900 px-4 py-3">
                 {isActive ? (
-                    <form onSubmit={handleSend} className="flex gap-2">
-                        <input
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Send a message..."
-                            className="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-claude-500"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!input.trim()}
-                            className="px-4 py-2.5 bg-claude-500 hover:bg-claude-600 disabled:opacity-40 rounded-lg text-sm font-medium transition-colors"
-                        >
-                            Send
-                        </button>
-                        <button
-                            type="button"
-                            onClick={onAbort}
-                            className="px-3 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm transition-colors"
-                            title="Abort session"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </form>
+                    <div>
+                        {isWaitingInput && (
+                            <p className="text-xs text-purple-400 mb-2 text-center">Claude is waiting for your input</p>
+                        )}
+                        <form onSubmit={handleSend} className="flex gap-2">
+                            <input
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder={isWaitingInput ? 'Type your reply...' : 'Send a message...'}
+                                className={`flex-1 px-3 py-2.5 bg-slate-800 border rounded-lg text-sm focus:outline-none focus:border-claude-500 ${isWaitingInput ? 'border-purple-500/40' : 'border-slate-700'}`}
+                            />
+                            <button
+                                type="submit"
+                                disabled={!input.trim()}
+                                className="px-4 py-2.5 bg-claude-500 hover:bg-claude-600 disabled:opacity-40 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Send
+                            </button>
+                            {session?.source !== 'cli' && (
+                                <button
+                                    type="button"
+                                    onClick={onAbort}
+                                    className="px-3 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm transition-colors"
+                                    title="Abort session"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                        </form>
+                    </div>
                 ) : (
                     <div className="text-center text-slate-500 text-sm py-1">
                         Session {session?.status || 'ended'}
