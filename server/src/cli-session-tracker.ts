@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
 import type { SessionInfo, SessionStatus, ToolCallInfo } from '@claude-companion/shared';
+import { TranscriptWatcher } from './transcript-watcher';
 
 interface PendingApproval {
     id: string;
@@ -36,6 +37,20 @@ const MESSAGE_TIMEOUT = 5 * 60 * 1000;  // 5 min
  */
 export class CliSessionTracker extends EventEmitter {
     private sessions = new Map<string, CliSession>();
+    private transcriptWatcher = new TranscriptWatcher();
+
+    constructor() {
+        super();
+        // Forward transcript text to mobile as output
+        this.transcriptWatcher.on('text', ({ sessionId, content }) => {
+            const session = this.sessions.get(sessionId);
+            if (session) {
+                session.lastActivityAt = Date.now();
+                session.messages.push({ type: 'text', content, timestamp: Date.now() });
+                this.emit('output', { sessionId, content });
+            }
+        });
+    }
 
     /** Handle SessionStart hook */
     registerSession(sessionId: string, cwd: string, transcriptPath: string): void {
@@ -57,6 +72,11 @@ export class CliSessionTracker extends EventEmitter {
             messages: [],
         };
         this.sessions.set(sessionId, session);
+
+        // Start watching transcript file for assistant text output
+        if (transcriptPath) {
+            this.transcriptWatcher.watch(sessionId, transcriptPath);
+        }
 
         this.emit('session_registered', { sessionId });
     }
@@ -208,6 +228,7 @@ export class CliSessionTracker extends EventEmitter {
         const cutoff = Date.now() - 30 * 60 * 1000;
         for (const [id, session] of this.sessions) {
             if (session.lastActivityAt < cutoff && !session.pendingApproval && !session.pendingMessage) {
+                this.transcriptWatcher.unwatch(id);
                 this.sessions.delete(id);
             }
         }
