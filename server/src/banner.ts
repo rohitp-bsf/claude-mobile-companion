@@ -22,16 +22,16 @@ export function printStartupBanner(port: number): void {
 
     // Print QR code for LAN URL if available
     if (lanUrl) {
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const qrcode = require('qrcode-terminal');
-            qrcode.generate(lanUrl, { small: true }, (qr: string) => {
-                console.log('  Scan to open on mobile:\n');
-                console.log(qr);
+        import('qrcode-terminal')
+            .then((qrcode) => {
+                qrcode.generate(lanUrl!, { small: true }, (qr: string) => {
+                    console.log('  Scan to open on mobile:\n');
+                    console.log(qr);
+                });
+            })
+            .catch(() => {
+                // qrcode-terminal is optional
             });
-        } catch {
-            // qrcode-terminal is optional
-        }
     }
 }
 

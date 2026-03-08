@@ -3,7 +3,11 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { DEFAULT_PORT } from '@claude-companion/shared';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { WSHandler } from './ws-handler';
 import { SessionManager } from './session-manager';
 import { AuthManager } from './auth';
@@ -39,7 +43,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // SPA fallback — serve index.html for all non-API routes
-app.get('*', (_req, res) => {
+app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(mobileDist, 'index.html'));
 });
 

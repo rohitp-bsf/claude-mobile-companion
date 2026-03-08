@@ -54,20 +54,15 @@ export class SessionManager extends EventEmitter {
         const session = this.sessions.get(sessionId);
         if (!session || session.status !== 'waiting_approval') return false;
 
-        session.status = 'running';
-        session.pendingApproval = undefined;
-        // Note: actual approval mechanism depends on Claude Code SDK's
-        // permission handling. For MVP, we run with allowedTools and
-        // the SDK handles permissions automatically.
+        this.bridge.resolvePermission(session, true);
         return true;
     }
 
-    reject(sessionId: string, _toolCallId: string, _reason?: string): boolean {
+    reject(sessionId: string, _toolCallId: string, reason?: string): boolean {
         const session = this.sessions.get(sessionId);
         if (!session || session.status !== 'waiting_approval') return false;
 
-        session.status = 'running';
-        session.pendingApproval = undefined;
+        this.bridge.resolvePermission(session, false, reason);
         return true;
     }
 
